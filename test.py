@@ -100,7 +100,6 @@ def Multi(i, scope):
         return model
 
 
-    
 def output(scope):
     with tf.compat.v1.variable_scope(scope):
 
@@ -151,6 +150,10 @@ def train(epi, gamma, b_value, i):
     observations = obs[i]
     values = group_to_single(actions)[i]
     values = np.reshape(values, (3, 1))
+    actions = group_to_single(actions)
+    action = actions[i]
+    reward = group_to_single(rewards)
+    rewards = reward[i]
 
 
     rewards_plus = np.asarray(rewards.tolist() + [b_value])
@@ -163,10 +166,10 @@ def train(epi, gamma, b_value, i):
     target_v = np.stack(discounted_rewards)
     train_value = 1
 
-    value, act = network_values(observations)
+    value, policy = network_values(observations)
 
-    actions_onehot = tf.one_hot(actions, 5, dtype=tf.float32)
-    responsible_outputs = tf.reduce_sum(act * actions_onehot, [1])
+    
+    responsible_outputs = tf.reduce_sum(policy[i] * action, [1])
 
     value_loss = 0.5 * tf.reduce_sum(train_value*tf.square(target_v - tf.reshape(value, shape=[-1])))
     policy_loss = - tf.reduce_sum(tf.math.log(tf.clip_by_value(responsible_outputs,1e-15,1.0)) * advantages)
@@ -240,12 +243,14 @@ for _ in range(1):
     while j < 10:
         val, policy = network_values(obs)
         act_ = []
+        act2 = []
         for i in range(num_agents):
 
             act = np.array(policy[i])
             act = np.random.choice(5, p=act.ravel())
             t = np.zeros((5))
             t[act] = 1
+            act2.append(t)
             a = np.concatenate([t, z], axis = None)
             act_.append(a.tolist())
         print(act_)
@@ -257,13 +262,13 @@ for _ in range(1):
 
 
         obs_n, reward_n, done_n, info_n = env.step(act_)
-        env.render()
+        #env.render()
     
 
 
         
 
-        #episode_buffer.append([obs, policy, reward_n, obs_n, val])
+        episode_buffer.append([obs, act2, reward_n, obs_n, val])
 
         #obs = obs_n
         #env.render()
