@@ -100,6 +100,7 @@ def Multi(i, scope):
         return model
 
 
+    
 def output(scope):
     with tf.compat.v1.variable_scope(scope):
 
