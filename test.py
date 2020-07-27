@@ -140,16 +140,19 @@ def train(epi, gamma, b_value, i):
     #episode_buffer.append([obs, act, reward_n, obs_n, val])
     epi = np.array(epi)
     observations = epi[:,0]
+    obs_net = epi[:,0]
     actions = epi[:,1]
     rewards = epi[:,2]
     values = epi[:,4]
 
     #obs = np.stack(observations)
-
+    obs_net = group_to_single(obs_net)
     obs = group_to_single(observations)
     observations = obs[i]
-    values = group_to_single(actions)[i]
-    values = np.reshape(values, (3, 1))
+    values_ = group_to_single(values)
+    values1 = values_[i]
+    #values = np.reshape(values1, (3, 1))
+    values = values1.ravel()
     actions = group_to_single(actions)
     action = actions[i]
     reward = group_to_single(rewards)
@@ -166,17 +169,31 @@ def train(epi, gamma, b_value, i):
     target_v = np.stack(discounted_rewards)
     train_value = 1
 
-    value, policy = network_values(observations)
+    
+    value, policy = network_values(obs_net)
+
+    value = value[i]
+    value = np.array(value).ravel()
+
+    policy = policy[i]
+
+    i = np.array(policy).tolist()
+
+    l = []
+    for k in range(len(i)):
+        l.append(i[k][0])
+
 
     
-    responsible_outputs = tf.reduce_sum(policy[i] * action, [1])
+    responsible_outputs = tf.reduce_sum(l * action, [1])
 
     value_loss = 0.5 * tf.reduce_sum(train_value*tf.square(target_v - tf.reshape(value, shape=[-1])))
     policy_loss = - tf.reduce_sum(tf.math.log(tf.clip_by_value(responsible_outputs,1e-15,1.0)) * advantages)
 
-    loss = 0.5 * value_loss + policy_loss
+    loss = 0.5 * np.array(value_loss) + np.array(policy_loss)
+    
 
-
+    
     return(loss)
 
 
@@ -218,7 +235,7 @@ def network_values(obs):
         actor = tf.transpose(actor, perm = [1, 0, 2])
         act_.append(actor)
 
-        val.append(list(np.array(critic[0])))
+        val.append(list(np.array(critic)))
 
     return(val, act_)
 
@@ -240,7 +257,7 @@ for _ in range(1):
     
     obs = env.reset()
     episode_buffer = []
-    while j < 10:
+    while j < 3:
         val, policy = network_values(obs)
         act_ = []
         act2 = []
@@ -253,7 +270,7 @@ for _ in range(1):
             act2.append(t)
             a = np.concatenate([t, z], axis = None)
             act_.append(a.tolist())
-        print(act_)
+        #print(act_)
 
 
 
@@ -274,6 +291,8 @@ for _ in range(1):
         #env.render()
 
         j += 1
+
+    loss = train(epi = episode_buffer, gamma= 0.9, b_value=0, i = 1)
 
 
 #obs = env.reset()
